@@ -1,0 +1,230 @@
+Xml Code:
+
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <de.hdodenhof.circleimageview.CircleImageView
+        android:layout_width="150dp"
+        android:layout_height="150dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="206dp"
+        android:layout_marginBottom="375dp"
+        android:src="@mipmap/ic_launcher"
+        android:id="@+id/image"
+        />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="318dp"
+        android:gravity="center"
+        android:textStyle="bold"
+        android:id="@+id/textview1"
+        />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginStart="7dp"
+        android:layout_marginTop="448dp"
+        android:gravity="center"
+        android:textStyle="bold"
+        android:id="@+id/textview2"
+        />
+
+    <com.facebook.login.widget.LoginButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignStart="@+id/image"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="-13dp"
+        android:layout_marginBottom="189dp"
+        android:id="@+id/loginbutton"
+
+        />
+</RelativeLayout>
+
+
+Java Code:
+
+package com.sample.facebook_login_firebase;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.RequestOptions;
+import com.facebook.AccessToken;
+import com.facebook.AccessTokenTracker;
+import com.facebook.CallbackManager;
+import com.facebook.FacebookCallback;
+import com.facebook.FacebookException;
+import com.facebook.GraphRequest;
+import com.facebook.GraphResponse;
+import com.facebook.login.LoginResult;
+import com.facebook.login.widget.LoginButton;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.Arrays;
+
+import de.hdodenhof.circleimageview.CircleImageView;
+
+public class MainActivity extends AppCompatActivity {
+    TextView t1,t2;
+    //Button b1;
+    CircleImageView c1;
+    LoginButton b1;
+CallbackManager mcallbackManager;
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        t1=findViewById(R.id.textview1);
+        t2=findViewById(R.id.textview2);
+        c1=findViewById(R.id.image);
+        b1=findViewById(R.id.loginbutton);
+        mcallbackManager=CallbackManager.Factory.create();
+        b1.setReadPermissions(Arrays.asList("email","public_profile"));
+        checkloginstatus();
+
+        b1.registerCallback(mcallbackManager, new FacebookCallback<LoginResult>() {
+            @Override
+            public void onSuccess(LoginResult loginResult) {
+
+            }
+
+            @Override
+            public void onCancel() {
+
+            }
+
+            @Override
+            public void onError(FacebookException error) {
+
+            }
+        });
+
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        mcallbackManager.onActivityResult(requestCode,resultCode,data);
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    AccessTokenTracker tokenTracker=new AccessTokenTracker() {
+        @Override
+        protected void onCurrentAccessTokenChanged(AccessToken oldAccessToken, AccessToken currentAccessToken) {
+
+            if(currentAccessToken==null){
+                t2.setText("");
+                t1.setText("");
+                c1.setImageResource(0);
+                Toast.makeText(MainActivity.this,"user logged out",Toast.LENGTH_SHORT).show();
+
+            }
+            else{
+                loaduserprofile(currentAccessToken);
+            }
+
+        }
+    };
+    private  void loaduserprofile(AccessToken newaccessToken){
+
+        GraphRequest graphRequest=GraphRequest.newMeRequest(newaccessToken, new GraphRequest.GraphJSONObjectCallback() {
+            @Override
+            public void onCompleted(JSONObject object, GraphResponse response) {
+                try{
+                    String first_name=object.getString("first_name");
+                    String last_name=object.getString("last_name");
+                    String email=object.getString(" email");
+                    String id=object.getString("id");
+                    String image_url="https://graph.facebook.com/"+ id +"/picture?type=normal";
+
+                    t2.setText(email);
+                    t1.setText(first_name+" "+last_name);
+                    RequestOptions requestOptions=new RequestOptions();
+                    requestOptions.dontAnimate();
+                    Glide.with(MainActivity.this).load(image_url).into(c1);
+
+
+                }catch (JSONException e){
+
+                }
+
+            }
+        });
+
+        Bundle parameters=new Bundle();
+        parameters.putString("fields","first_name,last_name,email,id");
+        graphRequest.setParameters(parameters);
+        graphRequest.executeAsync();
+    }
+    private void  checkloginstatus(){
+        if(AccessToken.getCurrentAccessToken()!=null){
+            loaduserprofile(AccessToken.getCurrentAccessToken());
+        }
+    }
+}
+
+
+AndroidManifest.xml:
+
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.sample.facebook_login_firebase">
+
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <activity android:name=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="com.facebook.CustomTabActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="@string/fb_login_protocol_scheme" />
+            </intent-filter>
+        </activity>
+
+        <meta-data android:name="com.facebook.sdk.ApplicationId"
+            android:value="@string/facebook_app_id"/>
+    </application>
+
+</manifest>
