@@ -1,0 +1,525 @@
+Main Activity:
+
+package com.sample.vedioclickfromfirebase;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+
+import android.os.Bundle;
+
+import android.view.View;
+import android.widget.ProgressBar;
+import android.widget.Toast;
+
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+
+import java.util.ArrayList;
+import java.util.List;
+
+
+
+public class MainActivity extends AppCompatActivity implements ClickListener {
+    ProgressBar progressBar;
+    DatabaseReference databaseReference;
+    RecyclerView recyclerView;
+    VedioModelAdapter vedioModelAdapter;
+List<VedioModel> vedioModels;
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        recyclerView=findViewById(R.id.recyclerview);
+        progressBar=findViewById(R.id.prpgress_bar);
+   recyclerView.setLayoutManager(new LinearLayoutManager(this));
+vedioModels=new ArrayList<>();
+        //FirebaseDatabase.getInstance().setPersistenceEnabled(true);
+        databaseReference= FirebaseDatabase.getInstance().getReference("Vedio");
+        databaseReference.keepSynced(true);
+
+databaseReference.addValueEventListener(new ValueEventListener() {
+    @Override
+    public void onDataChange(@NonNull DataSnapshot snapshot) {
+        for(DataSnapshot dataSnapshot:snapshot.getChildren()){
+VedioModel vedioModel=dataSnapshot.getValue(VedioModel.class);
+vedioModels.add(vedioModel);
+progressBar.setVisibility(View.INVISIBLE);
+
+        }
+vedioModelAdapter=new VedioModelAdapter(vedioModels,MainActivity.this,MainActivity.this);
+        recyclerView.setAdapter(vedioModelAdapter);
+
+    }
+
+    @Override
+    public void onCancelled(@NonNull DatabaseError error) {
+        progressBar.setVisibility(View.INVISIBLE);
+        Toast.makeText(MainActivity.this,error.getMessage(),Toast.LENGTH_SHORT).show();
+
+
+    }
+});
+    }
+
+
+
+    @Override
+    public void onClickItem(String url) {
+
+    }
+
+
+}
+
+
+
+
+
+VedioModel:
+
+package com.sample.vedioclickfromfirebase;
+
+public class VedioModel {
+
+   String image;
+    String title;
+
+    String url;
+
+public VedioModel(){}
+    public VedioModel(String image,String title,String url) {
+        this.image=image;
+        this.title = title;
+
+        this.url = url;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getImage() {
+        return image;
+    }
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public void setImage(String image) {
+        this.image = image;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
+    }
+}
+
+
+
+
+VedioModelAdapter:
+
+package com.sample.vedioclickfromfirebase;
+
+import android.app.DownloadManager;
+import android.content.Context;
+import android.content.Intent;
+import android.media.MediaPlayer;
+import android.net.Uri;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.bumptech.glide.Glide;
+import com.squareup.picasso.Callback;
+import com.squareup.picasso.NetworkPolicy;
+import com.squareup.picasso.Picasso;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
+import static android.os.Environment.DIRECTORY_DOWNLOADS;
+
+public class VedioModelAdapter extends RecyclerView.Adapter<VedioModelAdapter.ViewHolder> {
+    List<VedioModel> vedioModels=new ArrayList<>();
+    Context context;
+    ClickListener clickListener;
+
+    public VedioModelAdapter(List<VedioModel> vedioModels, Context context, ClickListener clickListener) {
+        this.vedioModels = vedioModels;
+        this.context = context;
+        this.clickListener = clickListener;
+    }
+
+    @NonNull
+    @Override
+    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View v= LayoutInflater.from(context).inflate(R.layout.item_row,parent,false);
+return new ViewHolder(v);
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+        final VedioModel vedioModel=vedioModels.get(position);
+holder.title.setText(vedioModel.getTitle());
+holder.filepath.setText(vedioModel.getUrl());
+Uri vedio=Uri.parse(vedioModel.getUrl());
+        MediaPlayer mediaPlayer=MediaPlayer.create(context, Uri.parse(vedio.toString()));
+        double msec=0;
+        if(mediaPlayer!=null){
+            msec=mediaPlayer.getDuration();
+
+        }
+double minutes=(msec%3600)/60;
+        holder.duration .setText(""+String.format("%.2f",minutes));
+       // Glide.with(context).load(vedioModel.getUrl()).into(holder.thumb);
+       // holder.thumb.setImageResource(vedioModel.getImage().toString());
+        //Picasso.get().load(vedioModel.getImage()).placeholder(R.mipmap.ic_launcher).fit().centerCrop().into(holder.thumb);
+        Picasso.get().load(vedioModel.getImage()).networkPolicy(NetworkPolicy.OFFLINE).into(holder.thumb, new Callback() {
+            @Override
+            public void onSuccess() {
+
+            }
+
+            @Override
+            public void onError(Exception e) {
+               // Picasso.get().load(vedioModel.getImage()).placeholder(R.mipmap.ic_launcher).fit().centerCrop().into(holder.thumb);
+
+            }
+        });
+        final double finalMsec = msec;
+        holder.thumb.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(finalMsec ==0){
+                    Toast.makeText(context,"Invalid Vedio",Toast.LENGTH_SHORT).show();
+
+                }
+                else {
+                    context.startActivity(new Intent(context, VedioPlayerActivity.class).putExtra("path_file",vedioModel.getUrl()));
+                }
+
+            }
+        });
+        holder.downloadbutton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                download(vedioModel.getUrl(),DIRECTORY_DOWNLOADS,vedioModel.getTitle());
+            }
+        });
+
+
+    }
+
+public void download(String url,String destinationdirectory,String title){
+    DownloadManager downloadManager=(DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
+    Uri uri=Uri.parse(url);
+    DownloadManager.Request request=new DownloadManager.Request(uri);
+    request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+
+    request.setDestinationInExternalFilesDir(context,destinationdirectory, title);
+    downloadManager.enqueue(request);
+}
+    @Override
+    public int getItemCount() {
+        return vedioModels.size();
+    }
+
+    public class ViewHolder extends RecyclerView.ViewHolder{
+        private TextView title, duration, filepath;
+        private ImageView thumb;
+        private ImageButton downloadbutton;
+        public ViewHolder(@NonNull View itemView) {
+            super(itemView);
+            title=itemView.findViewById(R.id.title);
+            duration=itemView.findViewById(R.id.duration);
+            filepath=itemView.findViewById(R.id.file_path);
+            thumb=itemView.findViewById(R.id.thumnail);
+            downloadbutton=itemView.findViewById(R.id.download_button);
+
+        }
+    }
+}
+
+
+
+
+VedioPlayerActivity:
+
+package com.sample.vedioclickfromfirebase;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.net.Uri;
+import android.os.Bundle;
+
+import com.google.android.exoplayer2.ExoPlayerFactory;
+import com.google.android.exoplayer2.SimpleExoPlayer;
+import com.google.android.exoplayer2.source.ExtractorMediaSource;
+import com.google.android.exoplayer2.source.MediaSource;
+import com.google.android.exoplayer2.ui.PlayerView;
+import com.google.android.exoplayer2.upstream.DataSource;
+import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
+import com.google.android.exoplayer2.util.Util;
+
+import java.util.Objects;
+
+public class VedioPlayerActivity extends AppCompatActivity {
+    PlayerView playerView;
+    SimpleExoPlayer simpleExoPlayer;
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Objects.requireNonNull(getSupportActionBar()).hide();
+        setContentView(R.layout.activity_vedio_player);
+        playerView=findViewById(R.id.exoplayer);
+        showVedio(getIntent().getStringExtra("path_file"));
+    }
+    private void showVedio(String filepath){
+        simpleExoPlayer= ExoPlayerFactory.newSimpleInstance(VedioPlayerActivity.this);
+        playerView.setPlayer(simpleExoPlayer);
+        DataSource.Factory datasource=new DefaultDataSourceFactory(VedioPlayerActivity.this, Util.getUserAgent(VedioPlayerActivity.this,getString(R.string.app_name)));
+        MediaSource vediosource=new ExtractorMediaSource.Factory(datasource).createMediaSource(Uri.parse(filepath));
+        simpleExoPlayer.prepare(vediosource);
+        simpleExoPlayer.setPlayWhenReady(true);
+
+
+    }
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if(simpleExoPlayer!=null){
+            simpleExoPlayer.release();
+        }
+
+        if(simpleExoPlayer!=null){
+            if(simpleExoPlayer.isLoading()) {
+                simpleExoPlayer.release();
+            }
+        }
+        if(simpleExoPlayer!=null){
+            if(simpleExoPlayer.isPlayingAd()) {
+                simpleExoPlayer.release();
+            }
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if(simpleExoPlayer!=null){
+            simpleExoPlayer.release();
+        }
+
+        if(simpleExoPlayer!=null){
+            if(simpleExoPlayer.isLoading()) {
+                simpleExoPlayer.release();
+            }
+        }
+        if(simpleExoPlayer!=null){
+            if(simpleExoPlayer.isPlayingAd()) {
+                simpleExoPlayer.release();
+            }
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        if(simpleExoPlayer!=null){
+            simpleExoPlayer.release();
+        }
+
+        if(simpleExoPlayer!=null){
+            if(simpleExoPlayer.isLoading()) {
+                simpleExoPlayer.release();
+            }
+        }
+        if(simpleExoPlayer!=null){
+            if(simpleExoPlayer.isPlayingAd()) {
+                simpleExoPlayer.release();
+            }
+        }
+    }
+}
+
+
+
+ClickListener:
+
+
+package com.sample.vedioclickfromfirebase;
+
+public interface ClickListener {
+void onClickItem(String url);
+}
+
+
+
+XmlCode:
+
+activity_main:
+
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+  <ProgressBar
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_centerInParent="true"
+      android:id="@+id/prpgress_bar"
+
+      />
+  <androidx.recyclerview.widget.RecyclerView
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:id="@+id/recyclerview"
+      />
+
+</RelativeLayout>
+
+
+
+activity_vedio_palyer:
+
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".VedioPlayerActivity">
+    <com.google.android.exoplayer2.ui.PlayerView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:show_timeout="0"
+        app:show_buffering="always"
+        android:id="@+id/exoplayer"
+        android:background="#000"
+        app:resize_mode="fill"
+        app:surface_type="surface_view"
+        />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+
+
+
+itm_row:
+
+
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:cardUseCompatPadding="true"
+    app:cardCornerRadius="15dp"
+    app:cardElevation="5dp"
+    >
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        >
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:id="@+id/file_path"
+            />
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="200dp">
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:id="@+id/thumnail"
+                android:src="@color/colorPrimary"
+                android:scaleType="centerCrop"
+                android:adjustViewBounds="true"
+                />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                >
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/title"
+                    android:layout_weight="1"
+                    android:text="TITLE"
+                    android:textColor="#fff"
+                    android:padding="10dp"
+                    android:background="#575252"
+                    />
+                <ImageButton
+                    android:layout_width="wrap_content"
+                    android:layout_height="39dp"
+                    android:src="@drawable/download"
+                    android:padding="10dp"
+                    android:background="#575252"
+                    android:id="@+id/download_button"
+
+                    />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/duration"
+                    android:layout_weight="2"
+                    android:text="DURATION"
+                    android:textColor="#fff"
+                    android:padding="10dp"
+                    android:background="#575252"
+                    />
+            </LinearLayout>
+        </FrameLayout>
+
+
+    </LinearLayout>
+
+
+</androidx.cardview.widget.CardView>
+
+
+
+
+Dependencies:
+
+
+    implementation 'com.google.android.exoplayer:exoplayer-core:2.10.8'
+    implementation 'com.google.android.exoplayer:exoplayer-dash:2.10.8'
+    implementation 'com.google.android.exoplayer:exoplayer-hls:2.10.8'
+    implementation 'com.google.android.exoplayer:exoplayer-smoothstreaming:2.10.8'
+    implementation 'com.google.android.exoplayer:exoplayer-ui:2.10.8'
+    implementation 'com.github.bumptech.glide:glide:4.10.0'
+    annotationProcessor 'com.github.bumptech.glide:compiler:4.10.0'
+    implementation "androidx.recyclerview:recyclerview:1.1.0"
+    implementation "androidx.cardview:cardview:1.0.0"
+    implementation 'com.squareup.picasso:picasso:2.71828'
